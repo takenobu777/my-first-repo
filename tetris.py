@@ -8,42 +8,76 @@ WIDTH = 10
 
 # Shapes with rotations
 SHAPES = {
-    'I': [[(0,0), (1,0), (2,0), (3,0)],
-          [(1,-1), (1,0), (1,1), (1,2)]],
-    'O': [[(0,0), (0,1), (1,0), (1,1)]],
-    'T': [[(0,0), (1,-1), (1,0), (1,1)],
-          [(0,0), (1,0), (2,0), (1,1)],
-          [(1,-1), (1,0), (1,1), (2,0)],
-          [(0,0), (1,0), (2,0), (1,-1)]],
-    'S': [[(0,0), (0,1), (1,-1), (1,0)],
-          [(0,0), (1,0), (1,1), (2,1)]],
-    'Z': [[(0,-1), (0,0), (1,0), (1,1)],
-          [(0,1), (1,0), (1,1), (2,0)]],
-    'J': [[(0,-1), (1,-1), (1,0), (1,1)],
-          [(0,0), (0,1), (1,0), (2,0)],
-          [(1,-1), (1,0), (1,1), (2,1)],
-          [(0,0), (1,0), (2,0), (2,-1)]],
-    'L': [[(0,1), (1,-1), (1,0), (1,1)],
-          [(0,0), (1,0), (2,0), (2,1)],
-          [(1,-1), (1,0), (1,1), (2,-1)],
-          [(0,-1), (0,0), (1,0), (2,0)]]
+    'I': [[(0, 0), (1, 0), (2, 0), (3, 0)],
+          [(1, -1), (1, 0), (1, 1), (1, 2)]],
+    'O': [[(0, 0), (0, 1), (1, 0), (1, 1)]],
+    'T': [[(0, 0), (1, -1), (1, 0), (1, 1)],
+          [(0, 0), (1, 0), (2, 0), (1, 1)],
+          [(1, -1), (1, 0), (1, 1), (2, 0)],
+          [(0, 0), (1, 0), (2, 0), (1, -1)]],
+    'S': [[(0, 0), (0, 1), (1, -1), (1, 0)],
+          [(0, 0), (1, 0), (1, 1), (2, 1)]],
+    'Z': [[(0, -1), (0, 0), (1, 0), (1, 1)],
+          [(0, 1), (1, 0), (1, 1), (2, 0)]],
+    'J': [[(0, -1), (1, -1), (1, 0), (1, 1)],
+          [(0, 0), (0, 1), (1, 0), (2, 0)],
+          [(1, -1), (1, 0), (1, 1), (2, 1)],
+          [(0, 0), (1, 0), (2, 0), (2, -1)]],
+    'L': [[(0, 1), (1, -1), (1, 0), (1, 1)],
+          [(0, 0), (1, 0), (2, 0), (2, 1)],
+          [(1, -1), (1, 0), (1, 1), (2, -1)],
+          [(0, -1), (0, 0), (1, 0), (2, 0)]]
 }
+
+
+class PieceBag:
+    """Random generator that mimics the modern Tetris 7-bag system."""
+
+    def __init__(self):
+        self._bag = []
+
+    def next(self):
+        if not self._bag:
+            self._bag = list(SHAPES.keys())
+            random.shuffle(self._bag)
+        return self._bag.pop()
+
+
+def get_piece_cells(name, rotation):
+    return SHAPES[name][rotation % len(SHAPES[name])]
 
 
 def create_board():
     return [[0 for _ in range(WIDTH)] for _ in range(HEIGHT)]
 
 
-def draw_board(stdscr, board, score):
+def draw_board(stdscr, board, score, current_piece=None, offset=None, next_piece=None):
     stdscr.clear()
+
     for y, row in enumerate(board):
         for x, cell in enumerate(row):
-            char = '#'
-            if cell:
-                stdscr.addstr(y, x * 2, '[]')
-            else:
-                stdscr.addstr(y, x * 2, '  ')
+            stdscr.addstr(y, x * 2, '[]' if cell else '  ')
+
+    if current_piece is not None and offset is not None:
+        off_y, off_x = offset
+        for y, x in current_piece:
+            draw_y, draw_x = y + off_y, x + off_x
+            if draw_y >= 0:
+                stdscr.addstr(draw_y, draw_x * 2, '[]')
+
     stdscr.addstr(0, WIDTH * 2 + 2, f"Score: {score}")
+
+    if next_piece:
+        stdscr.addstr(2, WIDTH * 2 + 2, "Next:")
+        min_y = min(y for y, _ in next_piece)
+        min_x = min(x for _, x in next_piece)
+        for y, x in next_piece:
+            draw_y = 3 + (y - min_y)
+            draw_x = WIDTH * 2 + 2 + (x - min_x) * 2
+            stdscr.addstr(draw_y, draw_x, '[]')
+
+    stdscr.addstr(HEIGHT + 1, 0,
+                  "Controls: ← → move, ↑ rotate, ↓ soft drop, q quit")
     stdscr.refresh()
 
 
@@ -73,15 +107,8 @@ def clear_lines(board):
     return new_board, cleared
 
 
-def rotate(piece, rotation):
-    return SHAPES[piece[0]][rotation]
-
-
-def choose_piece():
-    name = random.choice(list(SHAPES.keys()))
-    rotation = 0
-    shape = SHAPES[name][rotation]
-    return (name, rotation, shape)
+def rotate(name, rotation):
+    return get_piece_cells(name, rotation)
 
 
 def tetris(stdscr):
@@ -89,51 +116,71 @@ def tetris(stdscr):
     stdscr.nodelay(True)
     board = create_board()
     score = 0
-    piece_name, rotation, piece = choose_piece()
+    bag = PieceBag()
+    piece_name = bag.next()
+    rotation = 0
+    piece = get_piece_cells(piece_name, rotation)
+    next_piece_name = bag.next()
+    next_piece = get_piece_cells(next_piece_name, 0)
     offset = [-2, WIDTH // 2 - 1]
     drop_time = time.time()
-    speed = 0.5
+    fall_interval = 0.5
+    soft_drop_interval = 0.05
 
     while True:
-        draw_board(stdscr, board, score)
+        draw_board(stdscr, board, score, piece, offset, next_piece)
         key = stdscr.getch()
-        if key == curses.KEY_LEFT and not check_collision(board, piece, (offset[0], offset[1]-1)):
+        lock_piece = False
+        soft_drop = False
+
+        if key == curses.KEY_LEFT and not check_collision(board, piece, (offset[0], offset[1] - 1)):
             offset[1] -= 1
-        elif key == curses.KEY_RIGHT and not check_collision(board, piece, (offset[0], offset[1]+1)):
+        elif key == curses.KEY_RIGHT and not check_collision(board, piece, (offset[0], offset[1] + 1)):
             offset[1] += 1
         elif key == curses.KEY_DOWN:
-            speed = 0.05
+            soft_drop = True
+            if not check_collision(board, piece, (offset[0] + 1, offset[1])):
+                offset[0] += 1
+                drop_time = time.time()
+            else:
+                lock_piece = True
         elif key == curses.KEY_UP:
             new_rot = (rotation + 1) % len(SHAPES[piece_name])
-            new_piece = SHAPES[piece_name][new_rot]
+            new_piece = rotate(piece_name, new_rot)
             if not check_collision(board, new_piece, offset):
                 rotation = new_rot
                 piece = new_piece
         elif key == ord('q'):
             break
 
-        if time.time() - drop_time > speed:
+        interval = soft_drop_interval if soft_drop else fall_interval
+        if time.time() - drop_time > interval and not lock_piece:
             drop_time = time.time()
             if not check_collision(board, piece, (offset[0] + 1, offset[1])):
                 offset[0] += 1
             else:
-                merge_piece(board, piece, offset)
-                board, cleared = clear_lines(board)
-                score += cleared * 100
-                piece_name, rotation, piece = choose_piece()
-                offset = [-2, WIDTH // 2 - 1]
-                speed = 0.5
-                if check_collision(board, piece, offset):
-                    stdscr.addstr(HEIGHT//2, WIDTH-4, 'GAME OVER')
-                    stdscr.refresh()
-                    stdscr.nodelay(False)
-                    stdscr.getch()
-                    break
+                lock_piece = True
 
-        for y, x in piece:
-            if y + offset[0] >= 0:
-                stdscr.addstr(y + offset[0], (x + offset[1]) * 2, '[]')
-        stdscr.refresh()
+        if lock_piece:
+            merge_piece(board, piece, offset)
+            board, cleared = clear_lines(board)
+            score += cleared * 100
+            piece_name = next_piece_name
+            rotation = 0
+            piece = get_piece_cells(piece_name, rotation)
+            next_piece_name = bag.next()
+            next_piece = get_piece_cells(next_piece_name, 0)
+            offset = [-2, WIDTH // 2 - 1]
+
+            if check_collision(board, piece, offset):
+                draw_board(stdscr, board, score)
+                stdscr.addstr(HEIGHT // 2, WIDTH - 4, 'GAME OVER')
+                stdscr.refresh()
+                stdscr.nodelay(False)
+                stdscr.getch()
+                break
+
+        time.sleep(0.01)
 
 
 def main():
