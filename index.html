@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Safari対応サンプルアプリ</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <p class="app__eyebrow">Safari対応サンプル</p>
+        <h1>シンプル習慣トラッカー</h1>
+        <p class="app__lead">今日やりたいことを登録して、達成したらチェックしましょう。</p>
+      </header>
+
+      <section class="app__panel">
+        <form class="task-form" aria-label="やること追加フォーム">
+          <label class="task-form__label" for="task-input">やること</label>
+          <div class="task-form__controls">
+            <input
+              id="task-input"
+              name="task"
+              type="text"
+              placeholder="例: 散歩に行く"
+              autocomplete="off"
+              required
+            />
+            <button type="submit">追加</button>
+          </div>
+        </form>
+
+        <div class="task-summary" aria-live="polite">
+          <span id="task-count">0</span> 件のタスク
+        </div>
+
+        <ul class="task-list" id="task-list" aria-label="タスクリスト"></ul>
+      </section>
+
+      <section class="app__panel tips">
+        <h2>ヒント</h2>
+        <ul>
+          <li>クリックで完了にできます。</li>
+          <li>右側の削除ボタンで取り消せます。</li>
+          <li>Safariでも動くように、最新仕様のAPIは使っていません。</li>
+        </ul>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
